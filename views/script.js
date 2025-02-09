@@ -38,7 +38,7 @@ function login() {
 }
 
 function startChat() {
-    socket = new WebSocket("ws://localhost:5000");
+    socket = new WebSocket("ws://chatxappx.onrender.com");
 
     socket.onmessage = (event) => {
         const messages = document.getElementById("messages");
