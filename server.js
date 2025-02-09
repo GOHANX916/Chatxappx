@@ -1,44 +1,48 @@
 const express = require("express");
-const http = require("http");
 const mongoose = require("mongoose");
 const cors = require("cors");
-const WebSocket = require("ws");
-require("dotenv").config();
-const connectDB = require("./config/db");
+const http = require("http");
+const { Server } = require("socket.io");
 const authRoutes = require("./routes/auth");
+
+require("dotenv").config(); // Load environment variables
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
-
-// Middleware
-app.use(express.json());
-app.use(cors());
-
-// Database Connection
-connectDB();
-
-// Routes
-app.use("/api/auth", authRoutes);
-
-// WebSocket Setup
-wss.on("connection", (ws) => {
-  console.log("New client connected");
-
-  ws.on("message", (message) => {
-    console.log("Received:", message);
-    wss.clients.forEach((client) => {
-      if (client !== ws && client.readyState === WebSocket.OPEN) {
-        client.send(message);
-      }
-    });
-  });
-
-  ws.on("close", () => {
-    console.log("Client disconnected");
-  });
+const io = new Server(server, {
+    cors: {
+        origin: "*", // Allow all origins, change this in production
+        methods: ["GET", "POST"]
+    }
 });
 
-// Start Server
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const PORT = process.env.PORT || 10000;
+const MONGO_URI = process.env.MONGO_URI; // Store MongoDB URI in .env file
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use("/auth", authRoutes);
+
+// Connect to MongoDB Atlas
+mongoose.connect(MONGO_URI)
+    .then(() => console.log("✅ Connected to MongoDB Atlas"))
+    .catch(err => console.error("❌ MongoDB Connection Error:", err));
+
+// WebSocket connection
+io.on("connection", (socket) => {
+    console.log("🔵 A user connected:", socket.id);
+
+    socket.on("sendMessage", (data) => {
+        io.emit("receiveMessage", data); // Broadcast message to all users
+    });
+
+    socket.on("disconnect", () => {
+        console.log("🔴 A user disconnected:", socket.id);
+    });
+});
+
+// Start the server
+server.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+});
